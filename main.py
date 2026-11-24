@@ -1,12 +1,8 @@
-#!/usr/bin/env python3
-"""Sum 23 — Monday 23 November 2026 (make.fun news-image-20261123, round 3).
+"""Sum 23 news-image entrypoint.
 
-Copies the shipped entry.png to the output directory byte-for-byte and
-verifies the copy against the pinned SHA-256 of the rendered page.
-
-Usage:
-    MAKEFUN_OUTPUT_DIR=out python3 main.py
-    python3 main.py          # falls back to /output
+Copies the rendered newspaper image (entry.png, sitting beside this
+file) into the output directory and verifies the copy byte for byte
+against the expected SHA-256 digest.
 """
 
 import hashlib
@@ -14,25 +10,36 @@ import os
 import shutil
 import sys
 
-EXPECTED_SHA256 = "8e7c78bfb1cbb3d37aad8c62152deeee64cd912c3a4799a2df95edab9a5f084c"
+EXPECTED_SHA256 = "b75aa036be3fb7e7ef66c2fdf9a5b205f6717497c9fd8ecfa6077d6422b76f8c"
+CHUNK = 1024 * 1024
+
+
+def digest_of(path):
+    hasher = hashlib.sha256()
+    with open(path, "rb") as handle:
+        while True:
+            block = handle.read(CHUNK)
+            if not block:
+                break
+            hasher.update(block)
+    return hasher.hexdigest()
 
 
 def main():
     here = os.path.dirname(os.path.abspath(__file__))
-    src = os.path.join(here, "entry.png")
-    if not os.path.isfile(src):
-        print(f"missing shipped image: {src}", file=sys.stderr)
-        return 1
+    source = os.path.join(here, "entry.png")
     out_dir = os.environ.get("MAKEFUN_OUTPUT_DIR") or "/output"
     os.makedirs(out_dir, exist_ok=True)
-    dst = os.path.join(out_dir, "entry.png")
-    shutil.copyfile(src, dst)
-    digest = hashlib.sha256(open(dst, "rb").read()).hexdigest()
-    if digest != EXPECTED_SHA256:
-        print(f"SHA-256 mismatch: got {digest}, want {EXPECTED_SHA256}",
-              file=sys.stderr)
+    target = os.path.join(out_dir, "entry.png")
+    shutil.copyfile(source, target)
+    got = digest_of(target)
+    if got != EXPECTED_SHA256:
+        print(
+            "SHA-256 mismatch: got %s, want %s" % (got, EXPECTED_SHA256),
+            file=sys.stderr,
+        )
         return 1
-    print(f"entry.png -> {dst} ({os.path.getsize(dst)} bytes, sha256 ok)")
+    print("entry.png copied to %s, SHA-256 verified: %s" % (target, got))
     return 0
 
 
